@@ -178,7 +178,7 @@ const QRCodeGallery = () => {
 
       {/* Back to Top Button */}
       {showBackToTop && (
-        <button className="back-to-top-button" onClick={scrollToTop}>
+        <button className="scroll-to-top-button" onClick={scrollToTop}>
           ↑ Back to Top
         </button>
       )}

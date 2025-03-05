@@ -43,7 +43,7 @@
   font-weight: bold;
 }
 
-.back-to-top-button {
+.scroll-to-top-button {
   position: fixed;
   bottom: 20px;
   right: 20px;
@@ -57,7 +57,7 @@
   transition: background-color 0.3s ease;
 }
 
-.back-to-top-button:hover {
+.scroll-to-top-button:hover {
   background-color: #0056b3;
 }
 
