@@ -9,7 +9,7 @@ import { QRCodeSVG } from "qrcode.react";
 import "./QRCodeGallery.css";
 
 const TOTAL_CODES = 1000000; // 000000 to 999999
-const DEFAULT_BATCH_SIZE = 24; // Default batch size
+const DEFAULT_BATCH_SIZE = 32; // Default batch size
 const SEARCH_DELAY = 500; // Debounce delay
 const RESIZE_DELAY = 100; // Debounce delay for resize events
 
@@ -108,7 +108,10 @@ const QRCodeGallery = () => {
       start: prev.start,
       end: prev.start + newBatchSize,
     }));
-  }, []);
+
+    // Trigger the scroll handler to update the Back to Top button visibility
+    handleScroll();
+  }, [handleScroll]);
 
   // Handle viewport resize (including zoom)
   const handleResize = useCallback(() => {
