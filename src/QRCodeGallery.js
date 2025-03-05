@@ -1,22 +1,42 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import { QRCodeSVG } from "qrcode.react";
 import "./QRCodeGallery.css";
 
 const TOTAL_CODES = 1000000; // 000000 to 999999
-const BATCH_SIZE = 24;
-const SMALL_BATCH_SIZE = 12; // Faster loading on backspace
+const DEFAULT_BATCH_SIZE = 24; // Default batch size
 const SEARCH_DELAY = 500; // Debounce delay
+const RESIZE_DELAY = 100; // Debounce delay for resize events
 
 const QRCodeGallery = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-  const [visibleRange, setVisibleRange] = useState({
-    start: 0,
-    end: BATCH_SIZE,
-  });
   const [lastSearch, setLastSearch] = useState("");
   const [backspaceMode, setBackspaceMode] = useState(false);
-  const [showBackToTop, setShowBackToTop] = useState(false); // Track whether to show the button
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  const [batchSize, setBatchSize] = useState(DEFAULT_BATCH_SIZE); // Dynamic batch size
+  const qrCodeGridRef = useRef(null); // Ref to the QR code grid container
+
+  // Calculate the initial batch size based on viewport height and QR code height
+  const calculateInitialBatchSize = () => {
+    const qrCodeHeight = 211; // Height of each QR code (including margin/padding)
+    const viewportHeight = window.innerHeight;
+    const qrCodesPerViewport = Math.ceil(viewportHeight / qrCodeHeight) * 4; // 4 rows per row
+
+    // Set the batch size to at least the number of QR codes needed to fill the viewport
+    return Math.max(DEFAULT_BATCH_SIZE, qrCodesPerViewport);
+  };
+
+  // Initialize visibleRange with the calculated batch size
+  const [visibleRange, setVisibleRange] = useState({
+    start: 0,
+    end: calculateInitialBatchSize(), // Set initial batch size based on viewport
+  });
 
   // Debounce search input
   useEffect(() => {
@@ -68,13 +88,47 @@ const QRCodeGallery = () => {
     ) {
       setVisibleRange((prev) => ({
         start: prev.start,
-        end: Math.min(
-          prev.end + (backspaceMode ? SMALL_BATCH_SIZE : BATCH_SIZE),
-          TOTAL_CODES
-        ),
+        end: Math.min(prev.end + batchSize, TOTAL_CODES),
       }));
     }
-  }, [backspaceMode]);
+  }, [batchSize]);
+
+  // Calculate the minimum batch size based on viewport height and QR code height
+  const calculateBatchSize = useCallback(() => {
+    const qrCodeHeight = 211; // Height of each QR code (including margin/padding)
+    const viewportHeight = window.innerHeight;
+    const qrCodesPerViewport = Math.ceil(viewportHeight / qrCodeHeight) * 4; // 4 rows per row
+
+    // Set the batch size to at least the number of QR codes needed to fill the viewport
+    const newBatchSize = Math.max(DEFAULT_BATCH_SIZE, qrCodesPerViewport);
+    setBatchSize(newBatchSize);
+
+    // Update the visible range to reflect the new batch size
+    setVisibleRange((prev) => ({
+      start: prev.start,
+      end: prev.start + newBatchSize,
+    }));
+  }, []);
+
+  // Handle viewport resize (including zoom)
+  const handleResize = useCallback(() => {
+    calculateBatchSize();
+  }, [calculateBatchSize]);
+
+  // Debounced resize handler
+  useEffect(() => {
+    const debouncedResizeHandler = () => {
+      setTimeout(handleResize, RESIZE_DELAY);
+    };
+
+    window.addEventListener("resize", debouncedResizeHandler);
+    return () => window.removeEventListener("resize", debouncedResizeHandler);
+  }, [handleResize]);
+
+  // Calculate initial batch size on mount
+  useEffect(() => {
+    calculateBatchSize();
+  }, [calculateBatchSize]);
 
   // Update visible range when search term changes
   useEffect(() => {
@@ -83,13 +137,13 @@ const QRCodeGallery = () => {
       const start = debouncedSearchTerm
         ? parseInt(debouncedSearchTerm.padEnd(6, "0"), 10)
         : 0;
-      const end = start + (isBackspacing ? SMALL_BATCH_SIZE : BATCH_SIZE);
+      const end = start + batchSize;
 
       setVisibleRange({ start, end });
       setBackspaceMode(isBackspacing);
       setLastSearch(debouncedSearchTerm);
     }
-  }, [debouncedSearchTerm, lastSearch]);
+  }, [debouncedSearchTerm, lastSearch, batchSize]);
 
   // Attach scroll listener
   useEffect(() => {
@@ -115,7 +169,9 @@ const QRCodeGallery = () => {
         onChange={(e) => setSearchTerm(e.target.value)}
         className="search-input"
       />
-      <div className="qr-code-grid">{displayQRCodes}</div>
+      <div className="qr-code-grid" ref={qrCodeGridRef}>
+        {displayQRCodes}
+      </div>
 
       {/* Back to Top Button */}
       {showBackToTop && (

@@ -65,6 +65,10 @@
   .qr-code-grid {
     grid-template-columns: repeat(3, 1fr);
   }
+
+  .search-input {
+    width: 98%;
+  }
 }
 
 @media (max-width: 768px) {
