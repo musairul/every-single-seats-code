@@ -36,47 +36,10 @@ https://every-single-seats-code.vercel.app/
 - **IT Support**: Helping users find specific codes without manual lookup
 - **Reference Tool**: Complete database of all possible SEAtS codes in one place
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Node.js (v14 or higher)
-- npm or yarn
-
-### Installation
-
-1. Clone the repository
-
-```bash
-git clone <repository-url>
-cd every-single-seats-code
-```
-
-1. Install dependencies
-
-```bash
-npm install
-```
-
-1. Start the development server
-
-```bash
-npm start
-```
-
-1. Open [http://localhost:3000](http://localhost:3000) in your browser
-
-### 📦 Available Scripts
-
-- `npm start` - Runs the app in development mode
-- `npm build` - Builds the app for production
-
 ## 🛠️ Technologies Used
 
 - **React 19.0.0** - Modern React with hooks
 - **qrcode.react** - QR code generation library
-- **Create React App** - Project bootstrapping and build tools
-- **CSS3** - Custom styling with responsive design
 
 ## 📄 License
 
