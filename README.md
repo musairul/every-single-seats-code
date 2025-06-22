@@ -4,6 +4,8 @@ A React web application that generates and displays QR codes for all possible SE
 
 https://every-single-seats-code.vercel.app/
 
+![image](https://github.com/user-attachments/assets/aedabcb2-044b-47ff-b6fa-8aecf0a58f11)
+
 ## 🌟 Features
 
 - **Complete Coverage**: Displays all 1,000,000 possible SEAtS codes (000000-999999)
@@ -15,9 +17,6 @@ https://every-single-seats-code.vercel.app/
   - Debounced search with a small ms delay
   - Utilizes virtualised rendering to only render whats visible
   - Smooth scrolling with "Back to Top" button
-
-## 📷 Screenshot
-![image](https://github.com/user-attachments/assets/aedabcb2-044b-47ff-b6fa-8aecf0a58f11)
 
 ## 📊 Performance Features
 
