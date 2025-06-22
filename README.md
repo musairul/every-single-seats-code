@@ -15,6 +15,8 @@ https://every-single-seats-code.vercel.app/
   - Debounced search with a small ms delay
   - Utilizes virtualised rendering to only render whats visible
   - Smooth scrolling with "Back to Top" button
+ 
+![image](https://github.com/user-attachments/assets/aedabcb2-044b-47ff-b6fa-8aecf0a58f11)
 
 ## 📊 Performance Features
 
