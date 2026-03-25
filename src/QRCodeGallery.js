@@ -11,6 +11,13 @@ const RESIZE_DELAY = 100;
 const QR_VIDEO_SIZE = 640;
 const CLIPBOARD_STATUS_TIMEOUT = 1000;
 const CLIPBOARD_STATUS_TRANSITION = 220;
+const DEFAULT_ZOOM_STATE = {
+  min: 1,
+  max: 1,
+  step: 0.1,
+  value: 1,
+  supported: false,
+};
 
 const QRCodeGallery = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -26,6 +33,7 @@ const QRCodeGallery = () => {
   const [lookupMessage, setLookupMessage] = useState(null);
   const [clipboardStatus, setClipboardStatus] = useState(null);
   const [isClipboardStatusVisible, setIsClipboardStatusVisible] = useState(false);
+  const [zoomState, setZoomState] = useState(DEFAULT_ZOOM_STATE);
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
   const streamRef = useRef(null);
@@ -141,6 +149,8 @@ const QRCodeGallery = () => {
       }
       videoRef.current.srcObject = null;
     }
+
+    setZoomState(DEFAULT_ZOOM_STATE);
   }, []);
 
   const closeScanModal = useCallback(() => {
@@ -262,6 +272,59 @@ const QRCodeGallery = () => {
     return qrResult?.data ?? null;
   }, []);
 
+  const applyZoom = useCallback(async (nextZoom) => {
+    const track = streamRef.current?.getVideoTracks?.()[0];
+
+    if (!track) {
+      return;
+    }
+
+    try {
+      await track.applyConstraints({
+        advanced: [{ zoom: nextZoom }],
+      });
+
+      setZoomState((current) => ({
+        ...current,
+        value: nextZoom,
+      }));
+    } catch (error) {
+      // Some browsers expose zoom inconsistently. Keep scanning working even if zoom fails.
+    }
+  }, []);
+
+  const initialiseZoom = useCallback(async (stream) => {
+    const track = stream.getVideoTracks?.()[0];
+
+    if (!track?.getCapabilities) {
+      setZoomState(DEFAULT_ZOOM_STATE);
+      return;
+    }
+
+    const capabilities = track.getCapabilities();
+    const settings = track.getSettings ? track.getSettings() : {};
+    const zoomCapabilities = capabilities?.zoom;
+
+    if (!zoomCapabilities) {
+      setZoomState(DEFAULT_ZOOM_STATE);
+      return;
+    }
+
+    const nextZoomState = {
+      min: zoomCapabilities.min ?? 1,
+      max: zoomCapabilities.max ?? 1,
+      step: zoomCapabilities.step ?? 0.1,
+      value: settings.zoom ?? zoomCapabilities.min ?? 1,
+      supported: true,
+    };
+
+    setZoomState(nextZoomState);
+
+    if (typeof settings.zoom !== "number" && typeof nextZoomState.value === "number") {
+      await applyZoom(nextZoomState.value);
+    }
+  }, [applyZoom]);
+
   const scanCameraFrame = useCallback(async () => {
     if (!isScanModalOpenRef.current || !videoRef.current) {
       return;
@@ -287,6 +350,7 @@ const QRCodeGallery = () => {
   const attachStreamToVideo = useCallback(
     async (stream) => {
       streamRef.current = stream;
+      await initialiseZoom(stream);
 
       const attach = async () => {
         if (!videoRef.current) {
@@ -307,7 +371,7 @@ const QRCodeGallery = () => {
 
       await attach();
     },
-    [scanCameraFrame]
+    [initialiseZoom, scanCameraFrame]
   );
 
   const openScanner = useCallback(async () => {
@@ -355,6 +419,20 @@ const QRCodeGallery = () => {
   const triggerUpload = () => {
     fileInputRef.current?.click();
   };
+
+  const handleZoomChange = useCallback(
+    async (event) => {
+      const nextZoom = Number(event.target.value);
+
+      setZoomState((current) => ({
+        ...current,
+        value: nextZoom,
+      }));
+
+      await applyZoom(nextZoom);
+    },
+    [applyZoom]
+  );
 
   const handleUploadChange = async (event) => {
     const file = event.target.files?.[0];
@@ -635,6 +713,21 @@ const QRCodeGallery = () => {
               <video ref={videoRef} className="scanner-video" muted playsInline />
               <div className="scanner-retry-message">Enable camera to scan QR codes</div>
             </div>
+
+            {zoomState.supported && (
+              <div className="scanner-zoom-control">
+                <input
+                  type="range"
+                  min={zoomState.min}
+                  max={zoomState.max}
+                  step={zoomState.step}
+                  value={zoomState.value}
+                  onChange={handleZoomChange}
+                  className="scanner-zoom-slider"
+                  aria-label="Camera zoom"
+                />
+              </div>
+            )}
 
             <div className="scanner-upload-section">
               <button
