@@ -30,6 +30,7 @@ const QRCodeGallery = () => {
   const fileInputRef = useRef(null);
   const streamRef = useRef(null);
   const scanFrameRef = useRef(null);
+  const isScanModalOpenRef = useRef(false);
   const closeTimerRef = useRef(null);
   const clipboardTimerRef = useRef(null);
   const clipboardHideTimerRef = useRef(null);
@@ -143,6 +144,7 @@ const QRCodeGallery = () => {
   }, []);
 
   const closeScanModal = useCallback(() => {
+    isScanModalOpenRef.current = false;
     stopScanner();
     setIsScanModalOpen(false);
     setScanStatus({ type: "idle", text: "" });
@@ -261,7 +263,7 @@ const QRCodeGallery = () => {
   }, []);
 
   const scanCameraFrame = useCallback(async () => {
-    if (!isScanModalOpen || !videoRef.current) {
+    if (!isScanModalOpenRef.current || !videoRef.current) {
       return;
     }
 
@@ -280,7 +282,7 @@ const QRCodeGallery = () => {
     }
 
     scanFrameRef.current = window.requestAnimationFrame(scanCameraFrame);
-  }, [decodeImageToQrValue, handleDecodedValue, isScanModalOpen]);
+  }, [decodeImageToQrValue, handleDecodedValue]);
 
   const attachStreamToVideo = useCallback(
     async (stream) => {
@@ -311,6 +313,7 @@ const QRCodeGallery = () => {
   const openScanner = useCallback(async () => {
     clearLookupMessage();
     clearClipboardStatus();
+    isScanModalOpenRef.current = true;
     setIsScanModalOpen(true);
     setScanStatus({
       type: "loading",
