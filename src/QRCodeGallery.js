@@ -19,7 +19,7 @@ const QRCodeGallery = () => {
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [batchSize, setBatchSize] = useState(DEFAULT_BATCH_SIZE);
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
-  const [scanStatus, setScanStatus] = useState({
+  const [, setScanStatus] = useState({
     type: "idle",
     text: "",
   });
@@ -282,70 +282,33 @@ const QRCodeGallery = () => {
     scanFrameRef.current = window.requestAnimationFrame(scanCameraFrame);
   }, [decodeImageToQrValue, handleDecodedValue, isScanModalOpen]);
 
-  const attachStreamToVideo = async (stream) => {
-    streamRef.current = stream;
+  const attachStreamToVideo = useCallback(
+    async (stream) => {
+      streamRef.current = stream;
 
-    const attach = async () => {
-      if (!videoRef.current) {
-        window.requestAnimationFrame(attach);
-        return;
-      }
+      const attach = async () => {
+        if (!videoRef.current) {
+          window.requestAnimationFrame(attach);
+          return;
+        }
 
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
 
-      setScanStatus({
-        type: "scanning",
-        text: "Point your camera at a SEAtS QR code.",
-      });
+        setScanStatus({
+          type: "scanning",
+          text: "Point your camera at a SEAtS QR code.",
+        });
 
-      scanFrameRef.current = window.requestAnimationFrame(scanCameraFrame);
-    };
+        scanFrameRef.current = window.requestAnimationFrame(scanCameraFrame);
+      };
 
-    await attach();
-  };
+      await attach();
+    },
+    [scanCameraFrame]
+  );
 
-  const startScanner = useCallback(async () => {
-    stopScanner();
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setScanStatus({
-        type: "error",
-        text: "Camera access is not available on this device. You can upload a photo instead.",
-      });
-      return;
-    }
-
-    try {
-      setScanStatus({
-        type: "loading",
-        text: "Starting camera...",
-      });
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: QR_VIDEO_SIZE },
-          height: { ideal: QR_VIDEO_SIZE },
-        },
-        audio: false,
-      });
-
-      await attachStreamToVideo(stream);
-    } catch (error) {
-      const denied =
-        error?.name === "NotAllowedError" || error?.name === "SecurityError";
-
-      setScanStatus({
-        type: denied ? "permission-error" : "error",
-        text: denied
-          ? "Camera access was denied. You can allow it or upload a photo instead."
-          : "Unable to start the camera. Try again or upload a photo instead.",
-      });
-    }
-  }, [stopScanner]);
-
-  const openScanner = async () => {
+  const openScanner = useCallback(async () => {
     clearLookupMessage();
     clearClipboardStatus();
     setIsScanModalOpen(true);
@@ -384,7 +347,7 @@ const QRCodeGallery = () => {
           : "Unable to start the camera. Try again or upload a photo instead.",
       });
     }
-  };
+  }, [attachStreamToVideo, clearClipboardStatus, clearLookupMessage]);
 
   const triggerUpload = () => {
     fileInputRef.current?.click();
