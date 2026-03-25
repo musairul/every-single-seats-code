@@ -9,12 +9,12 @@ const SEARCH_DELAY = 500;
 const RESIZE_DELAY = 100;
 const CLIPBOARD_STATUS_TIMEOUT = 1000;
 const CLIPBOARD_STATUS_TRANSITION = 220;
-const ZOOM_APPLY_DELAY = 80;
 const DEFAULT_ZOOM_STATE = {
   min: 1,
   max: 1,
   step: 0.1,
   value: 1,
+  appliedValue: 1,
   supported: false,
 };
 
@@ -42,8 +42,8 @@ const QRCodeGallery = () => {
   const clipboardTimerRef = useRef(null);
   const clipboardHideTimerRef = useRef(null);
   const isHandlingScanResultRef = useRef(false);
-  const zoomApplyTimerRef = useRef(null);
-  const pendingZoomRef = useRef(DEFAULT_ZOOM_STATE.value);
+  const requestedZoomRef = useRef(DEFAULT_ZOOM_STATE.value);
+  const isApplyingZoomRef = useRef(false);
 
   const calculateInitialBatchSize = () => {
     const qrCodeHeight = 211;
@@ -133,11 +133,6 @@ const QRCodeGallery = () => {
       closeTimerRef.current = null;
     }
 
-    if (zoomApplyTimerRef.current) {
-      window.clearTimeout(zoomApplyTimerRef.current);
-      zoomApplyTimerRef.current = null;
-    }
-
     if (scannerRef.current) {
       scannerRef.current.stop();
       scannerRef.current.destroy();
@@ -159,7 +154,8 @@ const QRCodeGallery = () => {
     }
 
     isHandlingScanResultRef.current = false;
-    pendingZoomRef.current = DEFAULT_ZOOM_STATE.value;
+    requestedZoomRef.current = DEFAULT_ZOOM_STATE.value;
+    isApplyingZoomRef.current = false;
     setZoomState(DEFAULT_ZOOM_STATE);
   }, []);
 
@@ -276,12 +272,31 @@ const QRCodeGallery = () => {
 
       setZoomState((current) => ({
         ...current,
-        value: nextZoom,
+        appliedValue: nextZoom,
       }));
     } catch (error) {
       // Some browsers expose zoom inconsistently. Keep scanning working even if zoom fails.
     }
   }, []);
+
+  const processPendingZoom = useCallback(async () => {
+    const track = streamRef.current?.getVideoTracks?.()[0];
+
+    if (!track || isApplyingZoomRef.current) {
+      return;
+    }
+
+    isApplyingZoomRef.current = true;
+    const nextZoom = requestedZoomRef.current;
+
+    await applyZoom(nextZoom);
+
+    isApplyingZoomRef.current = false;
+
+    if (requestedZoomRef.current !== nextZoom) {
+      void processPendingZoom();
+    }
+  }, [applyZoom]);
 
   const initialiseZoom = useCallback(async (stream) => {
     const track = stream.getVideoTracks?.()[0];
@@ -305,10 +320,11 @@ const QRCodeGallery = () => {
       max: zoomCapabilities.max ?? 1,
       step: zoomCapabilities.step ?? 0.1,
       value: settings.zoom ?? zoomCapabilities.min ?? 1,
+      appliedValue: settings.zoom ?? zoomCapabilities.min ?? 1,
       supported: true,
     };
 
-    pendingZoomRef.current = nextZoomState.value;
+    requestedZoomRef.current = nextZoomState.value;
     setZoomState(nextZoomState);
 
     if (typeof settings.zoom !== "number" && typeof nextZoomState.value === "number") {
@@ -397,23 +413,16 @@ const QRCodeGallery = () => {
   const handleZoomChange = useCallback(
     (event) => {
       const nextZoom = Number(event.target.value);
-      pendingZoomRef.current = nextZoom;
+      requestedZoomRef.current = nextZoom;
 
       setZoomState((current) => ({
         ...current,
         value: nextZoom,
       }));
 
-      if (zoomApplyTimerRef.current) {
-        window.clearTimeout(zoomApplyTimerRef.current);
-      }
-
-      zoomApplyTimerRef.current = window.setTimeout(() => {
-        applyZoom(pendingZoomRef.current);
-        zoomApplyTimerRef.current = null;
-      }, ZOOM_APPLY_DELAY);
+      void processPendingZoom();
     },
-    [applyZoom]
+    [processPendingZoom]
   );
 
   const handleUploadChange = async (event) => {
@@ -597,6 +606,10 @@ const QRCodeGallery = () => {
     clearClipboardStatus();
   };
 
+  const previewScale = zoomState.supported
+    ? Math.max(1, zoomState.value / Math.max(zoomState.appliedValue, 1))
+    : 1;
+
   return (
     <div className="qr-code-container">
       <h1 className="page-title">
@@ -679,7 +692,13 @@ const QRCodeGallery = () => {
             </div>
 
             <div className="scanner-preview">
-              <video ref={videoRef} className="scanner-video" muted playsInline />
+              <video
+                ref={videoRef}
+                className="scanner-video"
+                muted
+                playsInline
+                style={{ transform: `scale(${previewScale})` }}
+              />
               <div className="scanner-retry-message">Enable camera to scan QR codes</div>
             </div>
 
