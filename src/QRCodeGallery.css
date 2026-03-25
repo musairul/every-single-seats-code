@@ -42,6 +42,40 @@
   background-color: #3a3a3a;
 }
 
+.clipboard-status {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  z-index: 1100;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.88);
+  color: white;
+  font-size: 14px;
+  text-align: left;
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+  pointer-events: none;
+}
+
+.clipboard-status-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.clipboard-status-success {
+  color: white;
+}
+
+.clipboard-status-error {
+  background: rgba(120, 20, 20, 0.92);
+  color: white;
+}
+
 .lookup-message {
   margin: 0 0 20px;
   padding: 10px 12px;
@@ -75,8 +109,11 @@
 
 .featured-qr-code {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   margin-bottom: 24px;
+  width: 100%;
 }
 
 .qr-code-item {
@@ -91,6 +128,7 @@
 
 .qr-code-item-featured {
   width: 100%;
+  box-sizing: border-box;
   padding: 32px;
 }
 
@@ -243,6 +281,11 @@
 @media (max-width: 480px) {
   .qr-code-grid {
     grid-template-columns: 1fr;
+  }
+
+  .clipboard-status {
+    left: 12px;
+    bottom: 12px;
   }
 
   .camera-button {

@@ -9,6 +9,8 @@ const DEFAULT_BATCH_SIZE = 32;
 const SEARCH_DELAY = 500;
 const RESIZE_DELAY = 100;
 const QR_VIDEO_SIZE = 640;
+const CLIPBOARD_STATUS_TIMEOUT = 1000;
+const CLIPBOARD_STATUS_TRANSITION = 220;
 
 const QRCodeGallery = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -22,11 +24,15 @@ const QRCodeGallery = () => {
     text: "",
   });
   const [lookupMessage, setLookupMessage] = useState(null);
+  const [clipboardStatus, setClipboardStatus] = useState(null);
+  const [isClipboardStatusVisible, setIsClipboardStatusVisible] = useState(false);
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
   const streamRef = useRef(null);
   const scanFrameRef = useRef(null);
   const closeTimerRef = useRef(null);
+  const clipboardTimerRef = useRef(null);
+  const clipboardHideTimerRef = useRef(null);
 
   const calculateInitialBatchSize = () => {
     const qrCodeHeight = 211;
@@ -48,6 +54,67 @@ const QRCodeGallery = () => {
   const clearLookupMessage = useCallback(() => {
     setLookupMessage(null);
   }, []);
+
+  const clearClipboardStatus = useCallback(() => {
+    if (clipboardTimerRef.current) {
+      window.clearTimeout(clipboardTimerRef.current);
+      clipboardTimerRef.current = null;
+    }
+
+    if (clipboardHideTimerRef.current) {
+      window.clearTimeout(clipboardHideTimerRef.current);
+      clipboardHideTimerRef.current = null;
+    }
+
+    setIsClipboardStatusVisible(false);
+    setClipboardStatus(null);
+  }, []);
+
+  const hideClipboardStatus = useCallback(() => {
+    if (clipboardTimerRef.current) {
+      window.clearTimeout(clipboardTimerRef.current);
+      clipboardTimerRef.current = null;
+    }
+
+    setIsClipboardStatusVisible(false);
+
+    if (clipboardHideTimerRef.current) {
+      window.clearTimeout(clipboardHideTimerRef.current);
+    }
+
+    clipboardHideTimerRef.current = window.setTimeout(() => {
+      setClipboardStatus(null);
+      clipboardHideTimerRef.current = null;
+    }, CLIPBOARD_STATUS_TRANSITION);
+  }, []);
+
+  const showClipboardStatus = useCallback(
+    (type, text, autoHide = false) => {
+      if (clipboardTimerRef.current) {
+        window.clearTimeout(clipboardTimerRef.current);
+        clipboardTimerRef.current = null;
+      }
+
+      if (clipboardHideTimerRef.current) {
+        window.clearTimeout(clipboardHideTimerRef.current);
+        clipboardHideTimerRef.current = null;
+      }
+
+      setClipboardStatus({ type, text });
+      setIsClipboardStatusVisible(false);
+
+      window.requestAnimationFrame(() => {
+        setIsClipboardStatusVisible(true);
+      });
+
+      if (autoHide) {
+        clipboardTimerRef.current = window.setTimeout(() => {
+          hideClipboardStatus();
+        }, CLIPBOARD_STATUS_TIMEOUT);
+      }
+    },
+    [hideClipboardStatus]
+  );
 
   const stopScanner = useCallback(() => {
     if (scanFrameRef.current) {
@@ -106,11 +173,10 @@ const QRCodeGallery = () => {
 
       const copied = await copyCodeToClipboard(code);
 
-      showLookupFeedback(
-        copied ? "success" : "info",
+      showClipboardStatus(
+        copied ? "success" : "error",
+        copied ? "Copied code to clipboard" : "Could not copy",
         copied
-          ? `Copied code to clipboard.`
-          : `Could not access clipboard.`
       );
 
       setScanStatus({
@@ -122,24 +188,26 @@ const QRCodeGallery = () => {
         closeScanModal();
       }, 350);
     },
-    [closeScanModal, copyCodeToClipboard, showLookupFeedback]
+    [closeScanModal, copyCodeToClipboard, showClipboardStatus]
   );
 
   const handleQRCodeClick = useCallback(
     async (code) => {
       setSearchTerm(code);
       setDebouncedSearchTerm(code);
+      clearLookupMessage();
+      clearClipboardStatus();
+      window.scrollTo({ top: 0, behavior: "auto" });
 
       const copied = await copyCodeToClipboard(code);
 
-      showLookupFeedback(
-        copied ? "success" : "info",
+      showClipboardStatus(
+        copied ? "success" : "error",
+        copied ? "Copied code to clipboard" : "Could not copy",
         copied
-          ? `Copied code to clipboard.`
-          : `Clipboard access was unavailable.`
       );
     },
-    [copyCodeToClipboard, showLookupFeedback]
+    [clearClipboardStatus, clearLookupMessage, copyCodeToClipboard, showClipboardStatus]
   );
 
   const handleDecodedValue = useCallback(
@@ -268,6 +336,7 @@ const QRCodeGallery = () => {
 
   const openScanner = () => {
     clearLookupMessage();
+    clearClipboardStatus();
     setIsScanModalOpen(true);
     setScanStatus({
       type: "loading",
@@ -288,6 +357,7 @@ const QRCodeGallery = () => {
     }
 
     clearLookupMessage();
+    clearClipboardStatus();
     setScanStatus({
       type: "loading",
       text: "Reading uploaded photo...",
@@ -330,6 +400,18 @@ const QRCodeGallery = () => {
 
     return () => window.clearTimeout(handler);
   }, [searchTerm]);
+
+  useEffect(() => {
+    return () => {
+      if (clipboardTimerRef.current) {
+        window.clearTimeout(clipboardTimerRef.current);
+      }
+
+      if (clipboardHideTimerRef.current) {
+        window.clearTimeout(clipboardHideTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isScanModalOpen) {
@@ -469,6 +551,7 @@ const QRCodeGallery = () => {
           onChange={(event) => {
             setSearchTerm(event.target.value);
             clearLookupMessage();
+            clearClipboardStatus();
           }}
           className="search-input"
         />
@@ -478,7 +561,7 @@ const QRCodeGallery = () => {
           onClick={openScanner}
           aria-label="Open QR scanner"
         >
-          Scan QR
+          Scan or Upload QR
         </button>
       </div>
 
@@ -497,6 +580,17 @@ const QRCodeGallery = () => {
       <div className="qr-code-grid">
         {remainingCodes.map((code) => renderQRCodeItem(code))}
       </div>
+
+      {clipboardStatus && (
+        <p
+          className={`clipboard-status clipboard-status-${clipboardStatus.type} ${
+            isClipboardStatusVisible ? "clipboard-status-visible" : ""
+          }`}
+          aria-live="polite"
+        >
+          {clipboardStatus.text}
+        </p>
+      )}
 
       {showBackToTop && (
         <button className="scroll-to-top-button" onClick={scrollToTop}>

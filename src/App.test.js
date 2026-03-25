@@ -1,15 +1,27 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
 
 beforeAll(() => {
   HTMLMediaElement.prototype.pause = jest.fn();
   HTMLMediaElement.prototype.play = jest.fn().mockResolvedValue(undefined);
+  window.scrollTo = jest.fn();
   Object.assign(navigator, {
     clipboard: {
       writeText: jest.fn().mockResolvedValue(undefined),
     },
   });
+});
+
+beforeEach(() => {
+  jest.useFakeTimers();
+  navigator.clipboard.writeText.mockClear();
+  navigator.clipboard.writeText.mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  jest.runOnlyPendingTimers();
+  jest.useRealTimers();
 });
 
 test("renders the search UI and opens the scanner modal", async () => {
@@ -49,9 +61,11 @@ test("clicking a qr code item features it and copies the code", async () => {
 
   await waitFor(() => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith("000000");
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "auto" });
     expect(screen.getByPlaceholderText(/search seats codes/i)).toHaveValue(
       "000000"
     );
+    expect(screen.getByText("Copied code to clipboard")).toBeInTheDocument();
     expect(
       screen.getAllByText("000000")[0].closest(".qr-code-item")
     ).toHaveClass("qr-code-item-featured");
@@ -98,4 +112,51 @@ test("an exact six-digit search still renders the continuing list underneath", a
     "qr-code-item-featured"
   );
   expect(screen.getByText("151446")).toBeInTheDocument();
+});
+
+test("successful clipboard feedback clears after a short delay", async () => {
+  render(<App />);
+
+  await userEvent.click(screen.getAllByText("000000")[0]);
+
+  await waitFor(() => {
+    expect(screen.getByText("Copied code to clipboard")).toBeInTheDocument();
+  });
+
+  act(() => {
+    jest.advanceTimersByTime(1000);
+  });
+
+  await waitFor(() => {
+    expect(
+      screen.queryByText("Copied code to clipboard")
+    ).not.toBeInTheDocument();
+  });
+});
+
+test("clipboard failure shows subtle inline failure text", async () => {
+  navigator.clipboard.writeText.mockRejectedValueOnce(new Error("denied"));
+  render(<App />);
+
+  await userEvent.click(screen.getAllByText("000000")[0]);
+
+  await waitFor(() => {
+    expect(screen.getByText("Could not copy")).toBeInTheDocument();
+  });
+});
+
+test("typing clears clipboard feedback", async () => {
+  render(<App />);
+
+  await userEvent.click(screen.getAllByText("000000")[0]);
+
+  await waitFor(() => {
+    expect(screen.getByText("Copied code to clipboard")).toBeInTheDocument();
+  });
+
+  await userEvent.type(screen.getByPlaceholderText(/search seats codes/i), "1");
+
+  expect(
+    screen.queryByText("Copied code to clipboard")
+  ).not.toBeInTheDocument();
 });
