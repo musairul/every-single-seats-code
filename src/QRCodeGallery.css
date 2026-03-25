@@ -93,36 +93,13 @@
 }
 
 .clipboard-status-success {
+  background: rgba(27, 94, 32, 0.92);
   color: white;
 }
 
 .clipboard-status-error {
   background: rgba(120, 20, 20, 0.92);
   color: white;
-}
-
-.lookup-message {
-  margin: 0 0 20px;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  text-align: left;
-  font-size: 14px;
-}
-
-.lookup-message-success {
-  background: #f4fbf4;
-  color: #1f5f1f;
-}
-
-.lookup-message-error {
-  background: #fff5f5;
-  color: #8b1e1e;
-}
-
-.lookup-message-info {
-  background: #f5f9ff;
-  color: #1e4f8b;
 }
 
 .qr-code-grid {

@@ -1,3 +1,31 @@
+jest.mock("qr-scanner", () => {
+  class MockQrScanner {
+    constructor(video) {
+      this.video = video;
+    }
+
+    start = jest.fn().mockImplementation(async () => {
+      if (this.video) {
+        this.video.srcObject = {
+          getTracks: () => [],
+          getVideoTracks: () => [],
+        };
+      }
+    });
+
+    stop = jest.fn();
+
+    destroy = jest.fn();
+
+    static scanImage = jest.fn();
+  }
+
+  return {
+    __esModule: true,
+    default: MockQrScanner,
+  };
+});
+
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
@@ -9,6 +37,9 @@ beforeAll(() => {
   Object.assign(navigator, {
     clipboard: {
       writeText: jest.fn().mockResolvedValue(undefined),
+    },
+    mediaDevices: {
+      getUserMedia: jest.fn(),
     },
   });
 });
@@ -34,10 +65,10 @@ test("renders the search UI and opens the scanner modal", async () => {
   await userEvent.click(screen.getByRole("button", { name: /open qr scanner/i }));
 
   expect(
-    screen.getByRole("heading", { name: /scan a seats qr code/i })
+    await screen.findByRole("heading", { name: /scan a seats qr code/i })
   ).toBeInTheDocument();
   expect(
-    screen.getByRole("button", { name: /upload photo/i })
+    await screen.findByRole("button", { name: /upload photo/i })
   ).toBeInTheDocument();
 });
 

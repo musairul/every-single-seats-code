@@ -29,7 +29,6 @@ const QRCodeGallery = () => {
     type: "idle",
     text: "",
   });
-  const [lookupMessage, setLookupMessage] = useState(null);
   const [clipboardStatus, setClipboardStatus] = useState(null);
   const [isClipboardStatusVisible, setIsClipboardStatusVisible] = useState(false);
   const [zoomState, setZoomState] = useState(DEFAULT_ZOOM_STATE);
@@ -63,10 +62,6 @@ const QRCodeGallery = () => {
   const exactSearchCode = /^\d{6}$/.test(trimmedSearchTerm)
     ? trimmedSearchTerm
     : null;
-
-  const clearLookupMessage = useCallback(() => {
-    setLookupMessage(null);
-  }, []);
 
   const clearClipboardStatus = useCallback(() => {
     if (clipboardTimerRef.current) {
@@ -167,9 +162,14 @@ const QRCodeGallery = () => {
     setScanStatus({ type: "idle", text: "" });
   }, [stopScanner]);
 
-  const showLookupFeedback = useCallback((type, text) => {
-    setLookupMessage({ type, text });
-  }, []);
+  const handleScannerError = useCallback(
+    (text, type = "error") => {
+      closeScanModal();
+      setScanStatus({ type, text });
+      showClipboardStatus("error", text, true);
+    },
+    [closeScanModal, showClipboardStatus]
+  );
 
   const copyCodeToClipboard = useCallback(async (code) => {
     if (!navigator.clipboard?.writeText) {
@@ -214,7 +214,6 @@ const QRCodeGallery = () => {
     async (code) => {
       setSearchTerm(code);
       setDebouncedSearchTerm(code);
-      clearLookupMessage();
       clearClipboardStatus();
       window.scrollTo({ top: 0, behavior: "auto" });
 
@@ -226,7 +225,7 @@ const QRCodeGallery = () => {
         true
       );
     },
-    [clearClipboardStatus, clearLookupMessage, copyCodeToClipboard, showClipboardStatus]
+    [clearClipboardStatus, copyCodeToClipboard, showClipboardStatus]
   );
 
   const handleDecodedValue = useCallback(
@@ -239,15 +238,14 @@ const QRCodeGallery = () => {
             ? "That QR code does not match the SEAtS format."
             : "QR code detected, but it does not match the SEAtS format.";
 
-        setScanStatus({ type: "error", text });
-        showLookupFeedback("error", text);
+        handleScannerError(text);
         return false;
       }
 
       await finishSuccessfulLookup(code);
       return true;
     },
-    [finishSuccessfulLookup, showLookupFeedback]
+    [finishSuccessfulLookup, handleScannerError]
   );
 
   const loadQrScanner = useCallback(async () => {
@@ -335,7 +333,6 @@ const QRCodeGallery = () => {
   }, [applyZoom]);
 
   const openScanner = useCallback(async () => {
-    clearLookupMessage();
     clearClipboardStatus();
     isHandlingScanResultRef.current = false;
     setIsScanModalOpen(true);
@@ -345,10 +342,9 @@ const QRCodeGallery = () => {
     });
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setScanStatus({
-        type: "error",
-        text: "Camera access is not available on this device. You can upload a photo instead.",
-      });
+      handleScannerError(
+        "Camera access is not available on this device. You can upload a photo instead."
+      );
       return;
     }
 
@@ -392,18 +388,17 @@ const QRCodeGallery = () => {
     } catch (error) {
       const denied =
         error?.name === "NotAllowedError" || error?.name === "SecurityError";
-
-      setScanStatus({
-        type: denied ? "permission-error" : "error",
-        text: denied
+      handleScannerError(
+        denied
           ? "Camera access was denied. You can allow it or upload a photo instead."
           : "Unable to start the camera. Try again or upload a photo instead.",
-      });
+        denied ? "permission-error" : "error"
+      );
     }
   }, [
     clearClipboardStatus,
-    clearLookupMessage,
     handleDecodedValue,
+    handleScannerError,
     initialiseZoom,
     loadQrScanner,
   ]);
@@ -505,7 +500,6 @@ const QRCodeGallery = () => {
       return;
     }
 
-    clearLookupMessage();
     clearClipboardStatus();
     setScanStatus({
       type: "loading",
@@ -524,8 +518,7 @@ const QRCodeGallery = () => {
         error?.message?.toLowerCase().includes("no qr code found")
           ? "No QR code could be read from that photo. Try a sharper or brighter image."
           : "That photo could not be processed. Try another image or use the live scanner.";
-      setScanStatus({ type: "error", text });
-      showLookupFeedback("error", text);
+      handleScannerError(text);
     }
   };
 
@@ -674,7 +667,6 @@ const QRCodeGallery = () => {
       setDebouncedSearchTerm("");
     }, 0);
     setLastSearch("");
-    clearLookupMessage();
     clearClipboardStatus();
   };
 
@@ -698,7 +690,6 @@ const QRCodeGallery = () => {
             value={searchTerm}
             onChange={(event) => {
               setSearchTerm(event.target.value);
-              clearLookupMessage();
               clearClipboardStatus();
             }}
             className="search-input"
@@ -713,12 +704,6 @@ const QRCodeGallery = () => {
           </button>
         </div>
       </div>
-
-      {lookupMessage && (
-        <p className={`lookup-message lookup-message-${lookupMessage.type}`}>
-          {lookupMessage.text}
-        </p>
-      )}
 
       {featuredCode && (
         <div className="featured-qr-code">
