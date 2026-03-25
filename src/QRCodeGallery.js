@@ -7,7 +7,7 @@ const TOTAL_CODES = 1000000;
 const DEFAULT_BATCH_SIZE = 32;
 const SEARCH_DELAY = 500;
 const RESIZE_DELAY = 100;
-const CLIPBOARD_STATUS_TIMEOUT = 1000;
+const CLIPBOARD_STATUS_TIMEOUT = 1800;
 const CLIPBOARD_STATUS_TRANSITION = 220;
 const DEFAULT_ZOOM_STATE = {
   min: 1,
@@ -233,12 +233,7 @@ const QRCodeGallery = () => {
       const code = extractSeatsCode(rawValue);
 
       if (!code) {
-        const text =
-          source === "upload"
-            ? "That QR code does not match the SEAtS format."
-            : "QR code detected, but it does not match the SEAtS format.";
-
-        handleScannerError(text);
+        handleScannerError("QR code does not match the SEAtS format.");
         return false;
       }
 
