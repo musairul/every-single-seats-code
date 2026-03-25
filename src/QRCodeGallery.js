@@ -35,6 +35,7 @@ const QRCodeGallery = () => {
   const [zoomState, setZoomState] = useState(DEFAULT_ZOOM_STATE);
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
+  const zoomSliderRef = useRef(null);
   const scannerRef = useRef(null);
   const qrScannerClassRef = useRef(null);
   const streamRef = useRef(null);
@@ -44,6 +45,7 @@ const QRCodeGallery = () => {
   const isHandlingScanResultRef = useRef(false);
   const requestedZoomRef = useRef(DEFAULT_ZOOM_STATE.value);
   const isApplyingZoomRef = useRef(false);
+  const isZoomDraggingRef = useRef(false);
 
   const calculateInitialBatchSize = () => {
     const qrCodeHeight = 211;
@@ -192,7 +194,7 @@ const QRCodeGallery = () => {
 
       showClipboardStatus(
         copied ? "success" : "error",
-        copied ? "Copied code to clipboard" : "Could not copy",
+        copied ? "Copied code to clipboard" : "Could not copy code to clipboard",
         copied
       );
 
@@ -220,7 +222,7 @@ const QRCodeGallery = () => {
 
       showClipboardStatus(
         copied ? "success" : "error",
-        copied ? "Copied code to clipboard" : "Could not copy",
+        copied ? "Copied code to clipboard" : "Could not copy code to clipboard",
         copied
       );
     },
@@ -411,8 +413,12 @@ const QRCodeGallery = () => {
   };
 
   const handleZoomChange = useCallback(
-    (event) => {
-      const nextZoom = Number(event.target.value);
+    (eventOrValue) => {
+      const nextZoom =
+        typeof eventOrValue === "number"
+          ? eventOrValue
+          : Number(eventOrValue.target.value);
+
       requestedZoomRef.current = nextZoom;
 
       setZoomState((current) => ({
@@ -423,6 +429,65 @@ const QRCodeGallery = () => {
       void processPendingZoom();
     },
     [processPendingZoom]
+  );
+
+  const getZoomValueFromPointer = useCallback(
+    (clientX) => {
+      const slider = zoomSliderRef.current;
+
+      if (!slider) {
+        return null;
+      }
+
+      const rect = slider.getBoundingClientRect();
+      const ratio = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+      const step = zoomState.step || 0.1;
+      const rawValue = zoomState.min + ratio * (zoomState.max - zoomState.min);
+      const steppedValue =
+        Math.round((rawValue - zoomState.min) / step) * step + zoomState.min;
+
+      return Number(
+        Math.min(Math.max(steppedValue, zoomState.min), zoomState.max).toFixed(4)
+      );
+    },
+    [zoomState.max, zoomState.min, zoomState.step]
+  );
+
+  const handleZoomPointerMove = useCallback(
+    (event) => {
+      if (!isZoomDraggingRef.current) {
+        return;
+      }
+
+      const nextZoom = getZoomValueFromPointer(event.clientX);
+
+      if (nextZoom !== null) {
+        handleZoomChange(nextZoom);
+      }
+    },
+    [getZoomValueFromPointer, handleZoomChange]
+  );
+
+  const stopZoomDrag = useCallback(() => {
+    isZoomDraggingRef.current = false;
+  }, []);
+
+  const handleZoomPointerDown = useCallback(
+    (event) => {
+      if (!zoomState.supported) {
+        return;
+      }
+
+      isZoomDraggingRef.current = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+
+      const nextZoom = getZoomValueFromPointer(event.clientX);
+
+      if (nextZoom !== null) {
+        handleZoomChange(nextZoom);
+      }
+    },
+    [getZoomValueFromPointer, handleZoomChange, zoomState.supported]
   );
 
   const handleUploadChange = async (event) => {
@@ -707,16 +772,26 @@ const QRCodeGallery = () => {
                 <span className="scanner-zoom-symbol" aria-hidden="true">
                   -
                 </span>
-                <input
-                  type="range"
-                  min={zoomState.min}
-                  max={zoomState.max}
-                  step={zoomState.step}
-                  value={zoomState.value}
-                  onChange={handleZoomChange}
-                  className="scanner-zoom-slider"
-                  aria-label="Camera zoom"
-                />
+                <div
+                  className="scanner-zoom-slider-hit-area"
+                  onPointerDown={handleZoomPointerDown}
+                  onPointerMove={handleZoomPointerMove}
+                  onPointerUp={stopZoomDrag}
+                  onPointerCancel={stopZoomDrag}
+                  onPointerLeave={stopZoomDrag}
+                >
+                  <input
+                    ref={zoomSliderRef}
+                    type="range"
+                    min={zoomState.min}
+                    max={zoomState.max}
+                    step={zoomState.step}
+                    value={zoomState.value}
+                    onChange={handleZoomChange}
+                    className="scanner-zoom-slider"
+                    aria-label="Camera zoom"
+                  />
+                </div>
                 <span className="scanner-zoom-symbol" aria-hidden="true">
                   +
                 </span>
