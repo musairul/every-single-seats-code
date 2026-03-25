@@ -282,6 +282,29 @@ const QRCodeGallery = () => {
     scanFrameRef.current = window.requestAnimationFrame(scanCameraFrame);
   }, [decodeImageToQrValue, handleDecodedValue, isScanModalOpen]);
 
+  const attachStreamToVideo = async (stream) => {
+    streamRef.current = stream;
+
+    const attach = async () => {
+      if (!videoRef.current) {
+        window.requestAnimationFrame(attach);
+        return;
+      }
+
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+
+      setScanStatus({
+        type: "scanning",
+        text: "Point your camera at a SEAtS QR code.",
+      });
+
+      scanFrameRef.current = window.requestAnimationFrame(scanCameraFrame);
+    };
+
+    await attach();
+  };
+
   const startScanner = useCallback(async () => {
     stopScanner();
 
@@ -308,19 +331,7 @@ const QRCodeGallery = () => {
         audio: false,
       });
 
-      streamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-
-      setScanStatus({
-        type: "scanning",
-        text: "Point your camera at a SEAtS QR code.",
-      });
-
-      scanFrameRef.current = window.requestAnimationFrame(scanCameraFrame);
+      await attachStreamToVideo(stream);
     } catch (error) {
       const denied =
         error?.name === "NotAllowedError" || error?.name === "SecurityError";
@@ -332,9 +343,9 @@ const QRCodeGallery = () => {
           : "Unable to start the camera. Try again or upload a photo instead.",
       });
     }
-  }, [scanCameraFrame, stopScanner]);
+  }, [stopScanner]);
 
-  const openScanner = () => {
+  const openScanner = async () => {
     clearLookupMessage();
     clearClipboardStatus();
     setIsScanModalOpen(true);
@@ -342,6 +353,37 @@ const QRCodeGallery = () => {
       type: "loading",
       text: "Preparing scanner...",
     });
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setScanStatus({
+        type: "error",
+        text: "Camera access is not available on this device. You can upload a photo instead.",
+      });
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: QR_VIDEO_SIZE },
+          height: { ideal: QR_VIDEO_SIZE },
+        },
+        audio: false,
+      });
+
+      await attachStreamToVideo(stream);
+    } catch (error) {
+      const denied =
+        error?.name === "NotAllowedError" || error?.name === "SecurityError";
+
+      setScanStatus({
+        type: denied ? "permission-error" : "error",
+        text: denied
+          ? "Camera access was denied. You can allow it or upload a photo instead."
+          : "Unable to start the camera. Try again or upload a photo instead.",
+      });
+    }
   };
 
   const triggerUpload = () => {
@@ -412,15 +454,6 @@ const QRCodeGallery = () => {
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!isScanModalOpen) {
-      return undefined;
-    }
-
-    startScanner();
-    return () => stopScanner();
-  }, [isScanModalOpen, startScanner, stopScanner]);
 
   useEffect(() => {
     return () => stopScanner();
@@ -540,8 +573,12 @@ const QRCodeGallery = () => {
   };
 
   const handleTitleClick = () => {
-    setSearchTerm("");
-    setDebouncedSearchTerm("");
+    setSearchTerm("000000");
+    setDebouncedSearchTerm("000000");
+    window.setTimeout(() => {
+      setSearchTerm("");
+      setDebouncedSearchTerm("");
+    }, 0);
     setLastSearch("");
     clearLookupMessage();
     clearClipboardStatus();
@@ -630,15 +667,7 @@ const QRCodeGallery = () => {
 
             <div className="scanner-preview">
               <video ref={videoRef} className="scanner-video" muted playsInline />
-              {scanStatus.type === "permission-error" && (
-                <button
-                  type="button"
-                  className="scanner-retry-button"
-                  onClick={startScanner}
-                >
-                  Enable camera
-                </button>
-              )}
+              <div className="scanner-retry-message">Enable camera to scan QR codes</div>
             </div>
 
             <div className="scanner-upload-section">

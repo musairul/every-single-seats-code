@@ -63,7 +63,9 @@ test("clicking the title clears the search bar", async () => {
   );
   await userEvent.click(screen.getByText(/every single seats code/i));
 
-  expect(screen.getByPlaceholderText(/search seats codes/i)).toHaveValue("");
+  await waitFor(() => {
+    expect(screen.getByPlaceholderText(/search seats codes/i)).toHaveValue("");
+  });
 });
 
 test("clicking a qr code item features it and copies the code", async () => {
