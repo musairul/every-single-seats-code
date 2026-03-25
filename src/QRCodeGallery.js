@@ -681,6 +681,10 @@ const QRCodeGallery = () => {
         <div className="search-input-wrapper">
           <input
             type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            enterKeyHint="search"
+            autoComplete="off"
             placeholder="Search SEAtS Codes (e.g., 151445)"
             value={searchTerm}
             onChange={(event) => {
