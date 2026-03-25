@@ -169,7 +169,7 @@ test("successful clipboard feedback clears after a short delay", async () => {
   });
 
   act(() => {
-    jest.advanceTimersByTime(1800);
+    jest.advanceTimersByTime(1400);
   });
 
   await waitFor(() => {
@@ -190,7 +190,7 @@ test("clipboard failure clears after a short delay", async () => {
   });
 
   act(() => {
-    jest.advanceTimersByTime(1800);
+    jest.advanceTimersByTime(1400);
   });
 
   await waitFor(() => {
