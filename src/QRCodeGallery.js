@@ -704,6 +704,9 @@ const QRCodeGallery = () => {
 
             {zoomState.supported && (
               <div className="scanner-zoom-control">
+                <span className="scanner-zoom-symbol" aria-hidden="true">
+                  -
+                </span>
                 <input
                   type="range"
                   min={zoomState.min}
@@ -714,6 +717,9 @@ const QRCodeGallery = () => {
                   className="scanner-zoom-slider"
                   aria-label="Camera zoom"
                 />
+                <span className="scanner-zoom-symbol" aria-hidden="true">
+                  +
+                </span>
               </div>
             )}
 

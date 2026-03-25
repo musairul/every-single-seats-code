@@ -253,13 +253,47 @@
 }
 
 .scanner-zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-top: 12px;
+  padding: 6px 0;
+}
+
+.scanner-zoom-symbol {
+  flex: 0 0 auto;
+  width: 16px;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .scanner-zoom-slider {
-  width: 100%;
+  flex: 1 1 auto;
   margin: 0;
   cursor: pointer;
+  min-height: 32px;
+  accent-color: #000;
+}
+
+.scanner-zoom-slider::-webkit-slider-runnable-track {
+  height: 4px;
+}
+
+.scanner-zoom-slider::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -7px;
+}
+
+.scanner-zoom-slider::-moz-range-track {
+  height: 4px;
+}
+
+.scanner-zoom-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: none;
 }
 
 .scanner-zoom-slider:disabled {
