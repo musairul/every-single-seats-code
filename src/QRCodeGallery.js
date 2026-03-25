@@ -539,30 +539,44 @@ const QRCodeGallery = () => {
     });
   };
 
+  const handleTitleClick = () => {
+    setSearchTerm("");
+    setDebouncedSearchTerm("");
+    setLastSearch("");
+    clearLookupMessage();
+    clearClipboardStatus();
+  };
+
   return (
     <div className="qr-code-container">
-      <h1 className="page-title">EVERY SINGLE SEATS CODE</h1>
+      <h1 className="page-title">
+        <span className="page-title-button" onClick={handleTitleClick}>
+          EVERY SINGLE SEATS CODE
+        </span>
+      </h1>
 
       <div className="lookup-row">
-        <input
-          type="text"
-          placeholder="Search SEAtS Codes (e.g., 151445)"
-          value={searchTerm}
-          onChange={(event) => {
-            setSearchTerm(event.target.value);
-            clearLookupMessage();
-            clearClipboardStatus();
-          }}
-          className="search-input"
-        />
-        <button
-          type="button"
-          className="camera-button"
-          onClick={openScanner}
-          aria-label="Open QR scanner"
-        >
-          Scan or Upload QR
-        </button>
+        <div className="search-input-wrapper">
+          <input
+            type="text"
+            placeholder="Search SEAtS Codes (e.g., 151445)"
+            value={searchTerm}
+            onChange={(event) => {
+              setSearchTerm(event.target.value);
+              clearLookupMessage();
+              clearClipboardStatus();
+            }}
+            className="search-input"
+          />
+          <button
+            type="button"
+            className="camera-button"
+            onClick={openScanner}
+            aria-label="Open QR scanner"
+          >
+            <span aria-hidden="true">📷</span>
+          </button>
+        </div>
       </div>
 
       {lookupMessage && (

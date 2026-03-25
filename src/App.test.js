@@ -54,6 +54,18 @@ test("shows an exact six-digit search as a featured qr card", async () => {
   expect(featuredCode).toHaveClass("qr-code-item-featured");
 });
 
+test("clicking the title clears the search bar", async () => {
+  render(<App />);
+
+  await userEvent.type(
+    screen.getByPlaceholderText(/search seats codes/i),
+    "151445"
+  );
+  await userEvent.click(screen.getByText(/every single seats code/i));
+
+  expect(screen.getByPlaceholderText(/search seats codes/i)).toHaveValue("");
+});
+
 test("clicking a qr code item features it and copies the code", async () => {
   render(<App />);
 

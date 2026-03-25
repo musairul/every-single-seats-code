@@ -12,34 +12,59 @@
   text-align: center;
 }
 
+.page-title-button {
+  cursor: pointer;
+  display: inline-block;
+}
+
 .lookup-row {
   display: flex;
-  align-items: stretch;
-  gap: 12px;
   margin-bottom: 20px;
+}
+
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
 }
 
 .search-input {
   width: 100%;
-  flex: 1;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 10px 12px;
+  border: none;
+  outline: none;
+  background: transparent;
   font-size: 16px;
 }
 
 .camera-button {
-  padding: 10px 20px;
-  font-size: 16px;
-  background-color: #000000;
-  color: white;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+  background: transparent;
+  color: inherit;
   border: none;
-  border-radius: 4px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+.camera-button span {
+  display: block;
+  line-height: 1;
+  transform: translateY(-2px);
 }
 
 .camera-button:hover {
-  background-color: #3a3a3a;
+  opacity: 0.7;
 }
 
 .clipboard-status {
@@ -286,11 +311,6 @@
   .clipboard-status {
     left: 12px;
     bottom: 12px;
-  }
-
-  .camera-button {
-    width: 48px;
-    min-width: 48px;
   }
 
   .scanner-modal-overlay {
