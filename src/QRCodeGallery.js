@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import jsQR from "jsqr";
 import { QRCodeSVG } from "qrcode.react";
 import "./QRCodeGallery.css";
 import { extractSeatsCode } from "./seatsQr";
@@ -8,9 +7,9 @@ const TOTAL_CODES = 1000000;
 const DEFAULT_BATCH_SIZE = 32;
 const SEARCH_DELAY = 500;
 const RESIZE_DELAY = 100;
-const QR_VIDEO_SIZE = 640;
 const CLIPBOARD_STATUS_TIMEOUT = 1000;
 const CLIPBOARD_STATUS_TRANSITION = 220;
+const ZOOM_APPLY_DELAY = 80;
 const DEFAULT_ZOOM_STATE = {
   min: 1,
   max: 1,
@@ -36,12 +35,15 @@ const QRCodeGallery = () => {
   const [zoomState, setZoomState] = useState(DEFAULT_ZOOM_STATE);
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
+  const scannerRef = useRef(null);
+  const qrScannerClassRef = useRef(null);
   const streamRef = useRef(null);
-  const scanFrameRef = useRef(null);
-  const isScanModalOpenRef = useRef(false);
   const closeTimerRef = useRef(null);
   const clipboardTimerRef = useRef(null);
   const clipboardHideTimerRef = useRef(null);
+  const isHandlingScanResultRef = useRef(false);
+  const zoomApplyTimerRef = useRef(null);
+  const pendingZoomRef = useRef(DEFAULT_ZOOM_STATE.value);
 
   const calculateInitialBatchSize = () => {
     const qrCodeHeight = 211;
@@ -126,14 +128,20 @@ const QRCodeGallery = () => {
   );
 
   const stopScanner = useCallback(() => {
-    if (scanFrameRef.current) {
-      window.cancelAnimationFrame(scanFrameRef.current);
-      scanFrameRef.current = null;
-    }
-
     if (closeTimerRef.current) {
       window.clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
+    }
+
+    if (zoomApplyTimerRef.current) {
+      window.clearTimeout(zoomApplyTimerRef.current);
+      zoomApplyTimerRef.current = null;
+    }
+
+    if (scannerRef.current) {
+      scannerRef.current.stop();
+      scannerRef.current.destroy();
+      scannerRef.current = null;
     }
 
     if (streamRef.current) {
@@ -150,11 +158,12 @@ const QRCodeGallery = () => {
       videoRef.current.srcObject = null;
     }
 
+    isHandlingScanResultRef.current = false;
+    pendingZoomRef.current = DEFAULT_ZOOM_STATE.value;
     setZoomState(DEFAULT_ZOOM_STATE);
   }, []);
 
   const closeScanModal = useCallback(() => {
-    isScanModalOpenRef.current = false;
     stopScanner();
     setIsScanModalOpen(false);
     setScanStatus({ type: "idle", text: "" });
@@ -243,33 +252,14 @@ const QRCodeGallery = () => {
     [finishSuccessfulLookup, showLookupFeedback]
   );
 
-  const decodeImageToQrValue = useCallback((imageSource) => {
-    const canvas = document.createElement("canvas");
-    const width = imageSource.videoWidth || imageSource.naturalWidth || imageSource.width;
-    const height =
-      imageSource.videoHeight || imageSource.naturalHeight || imageSource.height;
-
-    if (!width || !height) {
-      return null;
+  const loadQrScanner = useCallback(async () => {
+    if (qrScannerClassRef.current) {
+      return qrScannerClassRef.current;
     }
 
-    canvas.width = width;
-    canvas.height = height;
-
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-
-    if (!context) {
-      return null;
-    }
-
-    context.drawImage(imageSource, 0, 0, width, height);
-
-    const imageData = context.getImageData(0, 0, width, height);
-    const qrResult = jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: "dontInvert",
-    });
-
-    return qrResult?.data ?? null;
+    const module = await import("qr-scanner");
+    qrScannerClassRef.current = module.default;
+    return qrScannerClassRef.current;
   }, []);
 
   const applyZoom = useCallback(async (nextZoom) => {
@@ -318,6 +308,7 @@ const QRCodeGallery = () => {
       supported: true,
     };
 
+    pendingZoomRef.current = nextZoomState.value;
     setZoomState(nextZoomState);
 
     if (typeof settings.zoom !== "number" && typeof nextZoomState.value === "number") {
@@ -325,59 +316,10 @@ const QRCodeGallery = () => {
     }
   }, [applyZoom]);
 
-  const scanCameraFrame = useCallback(async () => {
-    if (!isScanModalOpenRef.current || !videoRef.current) {
-      return;
-    }
-
-    const video = videoRef.current;
-
-    if (video.readyState >= 2) {
-      const rawValue = decodeImageToQrValue(video);
-
-      if (rawValue) {
-        const matched = await handleDecodedValue(rawValue, "camera");
-
-        if (matched) {
-          return;
-        }
-      }
-    }
-
-    scanFrameRef.current = window.requestAnimationFrame(scanCameraFrame);
-  }, [decodeImageToQrValue, handleDecodedValue]);
-
-  const attachStreamToVideo = useCallback(
-    async (stream) => {
-      streamRef.current = stream;
-      await initialiseZoom(stream);
-
-      const attach = async () => {
-        if (!videoRef.current) {
-          window.requestAnimationFrame(attach);
-          return;
-        }
-
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-
-        setScanStatus({
-          type: "scanning",
-          text: "Point your camera at a SEAtS QR code.",
-        });
-
-        scanFrameRef.current = window.requestAnimationFrame(scanCameraFrame);
-      };
-
-      await attach();
-    },
-    [initialiseZoom, scanCameraFrame]
-  );
-
   const openScanner = useCallback(async () => {
     clearLookupMessage();
     clearClipboardStatus();
-    isScanModalOpenRef.current = true;
+    isHandlingScanResultRef.current = false;
     setIsScanModalOpen(true);
     setScanStatus({
       type: "loading",
@@ -393,16 +335,42 @@ const QRCodeGallery = () => {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: QR_VIDEO_SIZE },
-          height: { ideal: QR_VIDEO_SIZE },
-        },
-        audio: false,
-      });
+      const QrScanner = await loadQrScanner();
+      const scanner = new QrScanner(
+        videoRef.current,
+        async (result) => {
+          if (isHandlingScanResultRef.current) {
+            return;
+          }
 
-      await attachStreamToVideo(stream);
+          isHandlingScanResultRef.current = true;
+
+          const matched = await handleDecodedValue(result.data, "camera");
+
+          if (!matched) {
+            isHandlingScanResultRef.current = false;
+          }
+        },
+        {
+          onDecodeError: () => {},
+          preferredCamera: "environment",
+          maxScansPerSecond: 12,
+          returnDetailedScanResult: true,
+        }
+      );
+
+      scannerRef.current = scanner;
+      await scanner.start();
+      streamRef.current = videoRef.current?.srcObject ?? null;
+
+      if (streamRef.current) {
+        await initialiseZoom(streamRef.current);
+      }
+
+      setScanStatus({
+        type: "scanning",
+        text: "Point your camera at a SEAtS QR code.",
+      });
     } catch (error) {
       const denied =
         error?.name === "NotAllowedError" || error?.name === "SecurityError";
@@ -414,22 +382,36 @@ const QRCodeGallery = () => {
           : "Unable to start the camera. Try again or upload a photo instead.",
       });
     }
-  }, [attachStreamToVideo, clearClipboardStatus, clearLookupMessage]);
+  }, [
+    clearClipboardStatus,
+    clearLookupMessage,
+    handleDecodedValue,
+    initialiseZoom,
+    loadQrScanner,
+  ]);
 
   const triggerUpload = () => {
     fileInputRef.current?.click();
   };
 
   const handleZoomChange = useCallback(
-    async (event) => {
+    (event) => {
       const nextZoom = Number(event.target.value);
+      pendingZoomRef.current = nextZoom;
 
       setZoomState((current) => ({
         ...current,
         value: nextZoom,
       }));
 
-      await applyZoom(nextZoom);
+      if (zoomApplyTimerRef.current) {
+        window.clearTimeout(zoomApplyTimerRef.current);
+      }
+
+      zoomApplyTimerRef.current = window.setTimeout(() => {
+        applyZoom(pendingZoomRef.current);
+        zoomApplyTimerRef.current = null;
+      }, ZOOM_APPLY_DELAY);
     },
     [applyZoom]
   );
@@ -450,30 +432,17 @@ const QRCodeGallery = () => {
     });
 
     try {
-      const imageUrl = URL.createObjectURL(file);
-      const image = new Image();
-
-      await new Promise((resolve, reject) => {
-        image.onload = resolve;
-        image.onerror = reject;
-        image.src = imageUrl;
+      const QrScanner = await loadQrScanner();
+      const result = await QrScanner.scanImage(file, {
+        returnDetailedScanResult: true,
       });
 
-      const rawValue = decodeImageToQrValue(image);
-      URL.revokeObjectURL(imageUrl);
-
-      if (!rawValue) {
-        const text =
-          "No QR code could be read from that photo. Try a sharper or brighter image.";
-        setScanStatus({ type: "error", text });
-        showLookupFeedback("error", text);
-        return;
-      }
-
-      await handleDecodedValue(rawValue, "upload");
+      await handleDecodedValue(result.data, "upload");
     } catch (error) {
       const text =
-        "That photo could not be processed. Try another image or use the live scanner.";
+        error?.message?.toLowerCase().includes("no qr code found")
+          ? "No QR code could be read from that photo. Try a sharper or brighter image."
+          : "That photo could not be processed. Try another image or use the live scanner.";
       setScanStatus({ type: "error", text });
       showLookupFeedback("error", text);
     }
