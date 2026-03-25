@@ -151,7 +151,7 @@
 
 .scroll-to-top-button {
   position: fixed;
-  bottom: 20px;
+  bottom: 12px;
   right: 20px;
   padding: 10px 20px;
   font-size: 16px;
@@ -357,6 +357,11 @@
 
   .clipboard-status {
     left: 12px;
+    bottom: 12px;
+  }
+
+  .scroll-to-top-button {
+    right: 12px;
     bottom: 12px;
   }
 
