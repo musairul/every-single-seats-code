@@ -73,6 +73,12 @@
   overflow-y: inherit;
 }
 
+.featured-qr-code {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
 .qr-code-item {
   display: flex;
   flex-direction: column;
@@ -81,6 +87,21 @@
   border: 1px solid #eee;
   border-radius: 8px;
   text-align: center;
+}
+
+.qr-code-item-featured {
+  width: 100%;
+  padding: 32px;
+}
+
+.qr-code-item-featured .qr-code-number {
+  margin-bottom: 24px;
+  font-size: 40px;
+}
+
+.qr-code-item-featured svg {
+  width: min(100%, 320px);
+  height: auto;
 }
 
 .qr-code-number {

@@ -40,6 +40,10 @@ const QRCodeGallery = () => {
     start: 0,
     end: calculateInitialBatchSize(),
   });
+  const trimmedSearchTerm = searchTerm.trim();
+  const exactSearchCode = /^\d{6}$/.test(trimmedSearchTerm)
+    ? trimmedSearchTerm
+    : null;
 
   const clearLookupMessage = useCallback(() => {
     setLookupMessage(null);
@@ -105,8 +109,8 @@ const QRCodeGallery = () => {
       showLookupFeedback(
         copied ? "success" : "info",
         copied
-          ? `Found SEAtS code ${code} and copied it to your clipboard.`
-          : `Found SEAtS code ${code}. Clipboard access was unavailable.`
+          ? `Copied code to clipboard.`
+          : `Could not access clipboard.`
       );
 
       setScanStatus({
@@ -119,6 +123,23 @@ const QRCodeGallery = () => {
       }, 350);
     },
     [closeScanModal, copyCodeToClipboard, showLookupFeedback]
+  );
+
+  const handleQRCodeClick = useCallback(
+    async (code) => {
+      setSearchTerm(code);
+      setDebouncedSearchTerm(code);
+
+      const copied = await copyCodeToClipboard(code);
+
+      showLookupFeedback(
+        copied ? "success" : "info",
+        copied
+          ? `Copied code to clipboard.`
+          : `Clipboard access was unavailable.`
+      );
+    },
+    [copyCodeToClipboard, showLookupFeedback]
   );
 
   const handleDecodedValue = useCallback(
@@ -323,29 +344,50 @@ const QRCodeGallery = () => {
     return () => stopScanner();
   }, [stopScanner]);
 
-  const generateQRCodesForRange = useCallback((start, end) => {
+  const renderQRCodeItem = useCallback((code, isFeatured = false) => {
+    return (
+      <div
+        key={code}
+        className={isFeatured ? "qr-code-item qr-code-item-featured" : "qr-code-item"}
+        onClick={() => handleQRCodeClick(code)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleQRCodeClick(code);
+          }
+        }}
+      >
+        <span className="qr-code-number">{code}</span>
+        <QRCodeSVG value={`https://seatssoftware.com/qr/${code}`} size={160} />
+      </div>
+    );
+  }, [handleQRCodeClick]);
+
+  const generateQRCodeCodesForRange = useCallback((start, end) => {
     return Array.from(
       { length: Math.min(end - start, TOTAL_CODES - start) },
-      (_, i) => {
-        const number = start + i;
-        const paddedNumber = number.toString().padStart(6, "0");
-
-        return (
-          <div key={paddedNumber} className="qr-code-item">
-            <span className="qr-code-number">{paddedNumber}</span>
-            <QRCodeSVG
-              value={`https://seatssoftware.com/qr/${paddedNumber}`}
-              size={160}
-            />
-          </div>
-        );
-      }
+      (_, i) => (start + i).toString().padStart(6, "0")
     );
   }, []);
 
-  const displayQRCodes = useMemo(() => {
-    return generateQRCodesForRange(visibleRange.start, visibleRange.end);
-  }, [generateQRCodesForRange, visibleRange.end, visibleRange.start]);
+  const displayStart = exactSearchCode
+    ? parseInt(exactSearchCode, 10)
+    : visibleRange.start;
+  const displayCount = Math.max(visibleRange.end - visibleRange.start, batchSize);
+  const displayEnd = exactSearchCode
+    ? Math.min(displayStart + displayCount, TOTAL_CODES)
+    : visibleRange.end;
+
+  const displayCodes = useMemo(() => {
+    return generateQRCodeCodesForRange(displayStart, displayEnd);
+  }, [displayEnd, displayStart, generateQRCodeCodesForRange]);
+
+  const featuredCode = exactSearchCode;
+  const remainingCodes = featuredCode
+    ? displayCodes.filter((code) => code !== featuredCode)
+    : displayCodes;
 
   const handleScroll = useCallback(() => {
     setShowBackToTop(window.scrollY > 200);
@@ -446,7 +488,15 @@ const QRCodeGallery = () => {
         </p>
       )}
 
-      <div className="qr-code-grid">{displayQRCodes}</div>
+      {featuredCode && (
+        <div className="featured-qr-code">
+          {renderQRCodeItem(featuredCode, true)}
+        </div>
+      )}
+
+      <div className="qr-code-grid">
+        {remainingCodes.map((code) => renderQRCodeItem(code))}
+      </div>
 
       {showBackToTop && (
         <button className="scroll-to-top-button" onClick={scrollToTop}>
