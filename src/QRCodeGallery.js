@@ -195,7 +195,7 @@ const QRCodeGallery = () => {
       showClipboardStatus(
         copied ? "success" : "error",
         copied ? "Copied code to clipboard" : "Could not copy code to clipboard",
-        copied
+        true
       );
 
       setScanStatus({
@@ -223,7 +223,7 @@ const QRCodeGallery = () => {
       showClipboardStatus(
         copied ? "success" : "error",
         copied ? "Copied code to clipboard" : "Could not copy code to clipboard",
-        copied
+        true
       );
     },
     [clearClipboardStatus, clearLookupMessage, copyCodeToClipboard, showClipboardStatus]
@@ -459,6 +459,8 @@ const QRCodeGallery = () => {
         return;
       }
 
+      event.preventDefault();
+
       const nextZoom = getZoomValueFromPointer(event.clientX);
 
       if (nextZoom !== null) {
@@ -468,7 +470,11 @@ const QRCodeGallery = () => {
     [getZoomValueFromPointer, handleZoomChange]
   );
 
-  const stopZoomDrag = useCallback(() => {
+  const stopZoomDrag = useCallback((event) => {
+    if (event?.currentTarget?.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
     isZoomDraggingRef.current = false;
   }, []);
 
@@ -479,6 +485,7 @@ const QRCodeGallery = () => {
       }
 
       isZoomDraggingRef.current = true;
+      event.preventDefault();
       event.currentTarget.setPointerCapture(event.pointerId);
 
       const nextZoom = getZoomValueFromPointer(event.clientX);
@@ -778,7 +785,6 @@ const QRCodeGallery = () => {
                   onPointerMove={handleZoomPointerMove}
                   onPointerUp={stopZoomDrag}
                   onPointerCancel={stopZoomDrag}
-                  onPointerLeave={stopZoomDrag}
                 >
                   <input
                     ref={zoomSliderRef}

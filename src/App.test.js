@@ -148,14 +148,24 @@ test("successful clipboard feedback clears after a short delay", async () => {
   });
 });
 
-test("clipboard failure shows subtle inline failure text", async () => {
+test("clipboard failure clears after a short delay", async () => {
   navigator.clipboard.writeText.mockRejectedValueOnce(new Error("denied"));
   render(<App />);
 
   await userEvent.click(screen.getAllByText("000000")[0]);
 
   await waitFor(() => {
-    expect(screen.getByText("Could not copy")).toBeInTheDocument();
+    expect(screen.getByText("Could not copy code to clipboard")).toBeInTheDocument();
+  });
+
+  act(() => {
+    jest.advanceTimersByTime(1000);
+  });
+
+  await waitFor(() => {
+    expect(
+      screen.queryByText("Could not copy code to clipboard")
+    ).not.toBeInTheDocument();
   });
 });
 
